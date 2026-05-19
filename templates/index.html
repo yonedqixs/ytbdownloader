@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>YouTube Downloader</title>
+    <style>
+      :root {
+        --bg: #0e1117;
+        --card: #151b23;
+        --text: #e7edf5;
+        --muted: #9fb0c4;
+        --accent: #2ea6ff;
+        --accent-2: #4fd1a6;
+        --danger: #ff6b6b;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: var(--text);
+        background: radial-gradient(circle at 20% 10%, #1f2937 0%, var(--bg) 45%);
+        display: grid;
+        place-items: center;
+        padding: 20px;
+      }
+      .card {
+        width: min(720px, 100%);
+        background: linear-gradient(180deg, #172131, var(--card));
+        border: 1px solid #263246;
+        border-radius: 16px;
+        padding: 22px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 1.7rem;
+      }
+      p {
+        margin: 0 0 16px;
+        color: var(--muted);
+      }
+      form {
+        display: grid;
+        gap: 12px;
+      }
+      input[type="url"] {
+        width: 100%;
+        border: 1px solid #334155;
+        background: #0b1220;
+        color: var(--text);
+        border-radius: 10px;
+        padding: 13px 14px;
+        font-size: 1rem;
+      }
+      button {
+        border: 0;
+        border-radius: 10px;
+        padding: 12px 14px;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #04131e;
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        cursor: pointer;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        filter: grayscale(0.5);
+        opacity: 0.7;
+      }
+      #status {
+        min-height: 22px;
+        font-size: 0.96rem;
+      }
+      .error {
+        color: var(--danger);
+      }
+      .ok {
+        color: #8ce99a;
+      }
+      .hint {
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>YouTube to MP4</h1>
+      <p>Paste a YouTube link. The server downloads up to 1080p and returns an MP4 file.</p>
+      <form id="download-form" method="post" action="/api/download">
+        <input
+          id="url"
+          name="url"
+          type="url"
+          required
+          placeholder="https://www.youtube.com/watch?v=..."
+          autocomplete="off"
+        />
+        <button id="submit" type="submit">Download MP4</button>
+      </form>
+      <div id="status"></div>
+      <div class="hint">Limit: {{ max_file_mb }} MB. Large downloads can take a while.</div>
+    </main>
+    <script>
+      const form = document.getElementById("download-form");
+      const urlInput = document.getElementById("url");
+      const submitBtn = document.getElementById("submit");
+      const status = document.getElementById("status");
+
+      function setStatus(message, cls) {
+        status.textContent = message;
+        status.className = cls || "";
+      }
+
+      form.addEventListener("submit", (event) => {
+        const url = urlInput.value.trim();
+        if (!url) {
+          event.preventDefault();
+          return;
+        }
+
+        submitBtn.disabled = true;
+        setStatus("Preparing file. Download will start automatically...", "");
+        setTimeout(() => {
+          submitBtn.disabled = false;
+        }, 5000);
+      });
+    </script>
+  </body>
+</html>

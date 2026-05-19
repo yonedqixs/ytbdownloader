@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: youtube-downloader-web
+    runtime: docker
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: MAX_FILE_MB
+        value: 1900
+      - key: APP_DEBUG
+        value: "0"

@@ -74,14 +74,13 @@ def download_video(youtube_url: str, output_dir: Path) -> DownloadResult:
         "extractor_args": {"youtube": {"player_client": ["android_vr"]}},
     }
     env_cookies = os.getenv("YOUTUBE_COOKIES", "").strip()
+    local_cookies_path = Path(__file__).with_name("cookies.txt")
+    cookiefile_path: Path | None = None
     if env_cookies:
-        cookies_file = output_dir / "cookies.txt"
-        cookies_file.write_text(env_cookies, encoding="utf-8")
-        base_opts["cookiefile"] = str(cookies_file)
-    else:
-        cookies_path = Path(__file__).with_name("cookies.txt")
-        if cookies_path.exists():
-            base_opts["cookiefile"] = str(cookies_path)
+        cookiefile_path = output_dir / "cookies.txt"
+        cookiefile_path.write_text(env_cookies, encoding="utf-8")
+    elif local_cookies_path.exists():
+        cookiefile_path = local_cookies_path
 
     format_candidates = [
         "bv*[height<=1080]+ba/b[height<=1080]/b[height<=1080]",
@@ -89,32 +88,44 @@ def download_video(youtube_url: str, output_dir: Path) -> DownloadResult:
         "best",
     ]
 
-    info = None
-    last_error = None
-    for fmt in format_candidates:
-        ydl_opts = {**base_opts, "format": fmt}
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                current = ydl.extract_info(youtube_url, download=True)
-                req = current.get("requested_formats") or []
-                one = current.get("requested_downloads") or []
-                has_storyboard = any((x or {}).get("ext") == "mhtml" for x in req) or any(
-                    (x or {}).get("ext") == "mhtml" for x in one
-                )
-                if has_storyboard or current.get("ext") == "mhtml":
-                    raise yt_dlp.utils.DownloadError(
-                        "YouTube returned storyboard/images instead of video."
+    def try_download(use_cookies: bool):
+        opts = dict(base_opts)
+        if use_cookies and cookiefile_path:
+            opts["cookiefile"] = str(cookiefile_path)
+
+        info_local = None
+        last_error_local = None
+        for fmt in format_candidates:
+            ydl_opts = {**opts, "format": fmt}
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    current = ydl.extract_info(youtube_url, download=True)
+                    req = current.get("requested_formats") or []
+                    one = current.get("requested_downloads") or []
+                    has_storyboard = any((x or {}).get("ext") == "mhtml" for x in req) or any(
+                        (x or {}).get("ext") == "mhtml" for x in one
                     )
-                info = current
-                break
-        except yt_dlp.utils.DownloadError as exc:
-            last_error = exc
-            continue
+                    if has_storyboard or current.get("ext") == "mhtml":
+                        raise yt_dlp.utils.DownloadError(
+                            "YouTube returned storyboard/images instead of video."
+                        )
+                    info_local = current
+                    break
+            except yt_dlp.utils.DownloadError as exc:
+                last_error_local = exc
+                continue
+        return info_local, last_error_local, opts
+
+    info, last_error, used_opts = try_download(use_cookies=True)
+    if info is None and cookiefile_path:
+        msg = str(last_error or "")
+        if "Requested format is not available" in msg or "storyboard/images" in msg:
+            info, last_error, used_opts = try_download(use_cookies=False)
 
     if info is None:
         raise RuntimeError(f"Failed to download video: {last_error}")
 
-    with yt_dlp.YoutubeDL(base_opts) as ydl:
+    with yt_dlp.YoutubeDL(used_opts) as ydl:
         file_path = _find_downloaded_file(info, ydl)
 
     return DownloadResult(
@@ -163,10 +174,21 @@ def api_download():
         result = download_video(url, job_dir)
     except Exception as exc:  # noqa: BLE001
         shutil.rmtree(job_dir, ignore_errors=True)
+        details = str(exc)
+        if "Sign in to confirm you" in details:
+            user_msg = (
+                "YouTube requires authorization for this video. "
+                "Please refresh cookies (YOUTUBE_COOKIES) or try another video."
+            )
+        else:
+            user_msg = (
+                "Could not download this video. YouTube may be returning only storyboard/images "
+                "or blocking formats."
+            )
         return error_response(
-            "Could not download this video. YouTube may be returning only storyboard/images or blocking formats.",
+            user_msg,
             400,
-            str(exc),
+            details,
         )
 
     size_mb = result.size_bytes / (1024 * 1024)

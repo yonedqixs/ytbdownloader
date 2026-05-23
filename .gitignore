@@ -2,3 +2,5 @@
 __pycache__/
 *.pyc
 cookies.txt
+cookies_render*.txt
+cookies_youtube*.txt

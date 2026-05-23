@@ -1,45 +1,57 @@
-# YouTube Downloader Web
+# YouTube Web Downloader
 
-Web app: paste a YouTube URL -> get downloadable MP4.
+Minimal web app for downloading YouTube videos as MP4.
 
-## Local run
+## Install
 
 ```powershell
 cd "C:\Users\mrkpr\OneDrive\Документы\youtube-telegram-bot"
 python -m venv .venv
 .\.venv\Scripts\python -m pip install -r requirements.txt
+```
+
+## Environment
+
+Copy `.env.example` and set what you need:
+
+- `APP_HOST` (default `127.0.0.1`)
+- `APP_PORT` (default `5000`)
+- `APP_DEBUG` (`0` or `1`)
+- `MAX_FILE_MB` (default `1900`)
+- `YOUTUBE_COOKIES_FILE` (optional path to cookies file)
+- `YOUTUBE_COOKIES` (optional raw cookies text or cookies file path)
+- `YOUTUBE_COOKIES_FROM_BROWSER` (optional, e.g. `chrome` or `firefox:default`)
+- `BLOB_READ_WRITE_TOKEN` (required on Vercel to store output files)
+- `BLOB_ACCESS` (`public` or `private`, default `public`)
+
+Priority:
+1. `YOUTUBE_COOKIES_FILE`
+2. `YOUTUBE_COOKIES`
+3. local `cookies.txt`
+
+`cookies.txt` must be Netscape format (`# Netscape HTTP Cookie File` header).
+
+## Run
+
+```powershell
 .\.venv\Scripts\python .\app.py
 ```
 
-Open: `http://127.0.0.1:5000`
+Open [http://127.0.0.1:5000](http://127.0.0.1:5000)
 
-## Deploy to Render (recommended via Docker)
+## Deploy on Vercel
 
-This repo is ready for Render:
-- `Dockerfile`
-- `render.yaml`
+1. Create a Blob store in your Vercel project and keep `BLOB_READ_WRITE_TOKEN` enabled.
+2. Add env vars in Vercel Project Settings:
+   - `BLOB_READ_WRITE_TOKEN`
+   - `BLOB_ACCESS=public`
+   - one of `YOUTUBE_COOKIES_FILE` / `YOUTUBE_COOKIES`
+3. Deploy.
 
-### Steps
+On Vercel, `/api/download` uploads the generated MP4 to Blob and returns/redirects to blob URL.
 
-1. Upload project to GitHub.
-2. In Render: **New +** -> **Blueprint**.
-3. Connect your GitHub repo and select it.
-4. Render will detect `render.yaml` and create service `youtube-downloader-web`.
-5. Click **Apply** / **Create Resources**.
-6. Wait for build and deploy to finish.
-7. Open your Render URL and test with a YouTube link.
+## Notes
 
-### Important
-
-- `cookies.txt` is excluded from Docker image (`.dockerignore`), so deploy does not leak your local cookies.
-- If some videos fail, YouTube may block streams for that video/region/network.
-- `MAX_FILE_MB` can be changed in Render environment variables.
-- For protected videos on Render, set `YOUTUBE_COOKIES` environment variable with full Netscape cookies.txt content.
-
-## Environment variables
-
-- `MAX_FILE_MB` default `1900`
-- `APP_DEBUG` default `0`
-- `APP_HOST` default `0.0.0.0`
-- `PORT` provided by Render automatically
-- `YOUTUBE_COOKIES` optional, full cookies.txt content (multiline)
+- `ffmpeg` must be available in `PATH`.
+- Some videos may still be blocked by YouTube region/account restrictions.
+- `YOUTUBE_COOKIES_FROM_BROWSER` is for local runs; cloud environments usually cannot read your local browser profile.

@@ -166,6 +166,8 @@ def _parse_cookiesfrombrowser_spec() -> tuple[str, str | None, str | None, str |
     raw = os.getenv("YOUTUBE_COOKIES_FROM_BROWSER", "").strip()
     if not raw:
         return None
+    if raw.lower() in {"0", "false", "none", "null", "off"}:
+        return None
 
     match = re.fullmatch(
         r"""(?x)
@@ -310,7 +312,12 @@ def api_download():
     except Exception as exc:  # noqa: BLE001
         shutil.rmtree(job_dir, ignore_errors=True)
         details = str(exc)
-        if "Sign in to confirm you" in details:
+        if 'unsupported browser: "0"' in details or "unsupported browser" in details:
+            user_msg = (
+                "Invalid YOUTUBE_COOKIES_FROM_BROWSER value. "
+                "Use empty value on Vercel or valid values like chrome/firefox for local runs."
+            )
+        elif "Sign in to confirm you" in details:
             user_msg = (
                 "YouTube requires authorization for this video. "
                 "Provide fresh cookies via YOUTUBE_COOKIES_FILE or YOUTUBE_COOKIES. "

@@ -18,4 +18,4 @@ ENV APP_HOST=0.0.0.0
 ENV PORT=10000
 EXPOSE 10000
 
-CMD ["sh", "-c", "gunicorn -w 2 -k gthread --threads 4 -b 0.0.0.0:${PORT:-10000} app:app"]
+CMD ["sh", "-c", "gunicorn -w 2 -k gthread --threads 4 -b 0.0.0.0:${PORT:-10000} worker_app:app"]

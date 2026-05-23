@@ -1,10 +1,10 @@
 services:
   - type: web
-    name: youtube-downloader-web
+    name: youtube-downloader-worker
     runtime: docker
     plan: starter
     autoDeploy: true
-    healthCheckPath: /
+    healthCheckPath: /healthz
     envVars:
       - key: MAX_FILE_MB
         value: 1900

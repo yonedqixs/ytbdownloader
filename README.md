@@ -1,6 +1,17 @@
-# YouTube Web Downloader
+# YouTube Downloader (Vercel Frontend + Worker Backend)
 
-Minimal web app for downloading YouTube videos as MP4.
+This repo is split into two services:
+
+- `app.py`: lightweight frontend/proxy (deploy on Vercel)
+- `worker_app.py`: heavy downloader (deploy on VPS/Render/Railway/etc.)
+
+The frontend sends URL requests to worker.  
+Worker downloads with `yt-dlp`, uploads MP4 to Vercel Blob, and returns a download URL.
+
+## Why this architecture
+
+YouTube often blocks datacenter IPs (`Sign in to confirm you're not a bot`) even with cookies.  
+Vercel is great for frontend, but download reliability is better on a dedicated worker host.
 
 ## Install
 
@@ -10,48 +21,52 @@ python -m venv .venv
 .\.venv\Scripts\python -m pip install -r requirements.txt
 ```
 
-## Environment
+## Frontend env (Vercel)
 
-Copy `.env.example` and set what you need:
+- `WORKER_API_URL` = `https://your-worker-domain`
+- `WORKER_API_KEY` = shared secret (same on worker)
+- `WORKER_TIMEOUT_SEC` = `300` (or more)
+- `MAX_FILE_MB` = `1900` (UI hint only)
 
-- `APP_HOST` (default `127.0.0.1`)
-- `APP_PORT` (default `5000`)
-- `APP_DEBUG` (`0` or `1`)
-- `MAX_FILE_MB` (default `1900`)
-- `YOUTUBE_COOKIES_FILE` (optional path to cookies file)
-- `YOUTUBE_COOKIES` (optional raw cookies text or cookies file path)
-- `YOUTUBE_COOKIES_FROM_BROWSER` (optional, e.g. `chrome` or `firefox:default`)
-- `BLOB_READ_WRITE_TOKEN` (required on Vercel to store output files)
-- `BLOB_ACCESS` (`public` or `private`, default `public`)
+## Worker env
 
-Priority:
-1. `YOUTUBE_COOKIES_FILE`
-2. `YOUTUBE_COOKIES`
-3. local `cookies.txt`
+- `WORKER_API_KEY` = shared secret
+- `BLOB_READ_WRITE_TOKEN` = token from Vercel Blob
+- `BLOB_ACCESS` = `public` or `private`
+- `MAX_FILE_MB` = `1900`
+- `YOUTUBE_COOKIES` or `YOUTUBE_COOKIES_FILE` (Netscape format)
+- Optional local only: `YOUTUBE_COOKIES_FROM_BROWSER`
 
-`cookies.txt` must be Netscape format (`# Netscape HTTP Cookie File` header).
+## Run locally
 
-## Run
+Worker:
 
 ```powershell
+$env:APP_PORT="5001"
+$env:WORKER_API_KEY="change-me"
+.\.venv\Scripts\python .\worker_app.py
+```
+
+Frontend (new terminal):
+
+```powershell
+$env:WORKER_API_URL="http://127.0.0.1:5001"
+$env:WORKER_API_KEY="change-me"
 .\.venv\Scripts\python .\app.py
 ```
 
-Open [http://127.0.0.1:5000](http://127.0.0.1:5000)
+Open: [http://127.0.0.1:5000](http://127.0.0.1:5000)
 
-## Deploy on Vercel
+## API flow
 
-1. Create a Blob store in your Vercel project and keep `BLOB_READ_WRITE_TOKEN` enabled.
-2. Add env vars in Vercel Project Settings:
-   - `BLOB_READ_WRITE_TOKEN`
-   - `BLOB_ACCESS=public`
-   - one of `YOUTUBE_COOKIES_FILE` / `YOUTUBE_COOKIES`
-3. Deploy.
+1. Browser POST `/api/download` to frontend.
+2. Frontend POSTs JSON to worker: `/api/worker/download` + `X-Worker-Key`.
+3. Worker downloads video and uploads to Blob.
+4. Frontend redirects user to `download_url`.
 
-On Vercel, `/api/download` uploads the generated MP4 to Blob and returns/redirects to blob URL.
+## Vercel notes
 
-## Notes
-
-- `ffmpeg` must be available in `PATH`.
-- Some videos may still be blocked by YouTube region/account restrictions.
-- `YOUTUBE_COOKIES_FROM_BROWSER` is for local runs; cloud environments usually cannot read your local browser profile.
+- Keep `api/index.py` and `vercel.json` as committed in repo.
+- Frontend does not stream MP4 bytes directly.
+- Worker must handle downloading.
+- `Dockerfile` in this repo is configured for worker (`worker_app:app`).
